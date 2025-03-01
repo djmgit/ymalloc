@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdint.h>
+#include "ymalloc.h"
 
 #define NEW_ALLOC 0x1
 #define RE_ACCLOC 0x2
@@ -37,7 +38,7 @@ block_header_t *get_space_from_os(size_t size) {
     return block;
 }
 
-block_header_t *find_free_block(block_header_t **last, size_t size) {
+block_header_t *find_free_block_first_fit(block_header_t **last, size_t size) {
     block_header_t *curr = mem_pool;
     while (curr != NULL && !(curr->free == 1 && curr->block_size >= size)) {
         *last = curr;
@@ -45,6 +46,33 @@ block_header_t *find_free_block(block_header_t **last, size_t size) {
     }
     return curr;
 }
+
+block_header_t *find_free_block_best_fit(block_header_t **last, size_t size) {
+    block_header_t *curr = mem_pool;
+    block_header_t *block = NULL;
+    while (curr != NULL) {
+        *last = curr;
+        if (curr->free == 1 && curr->block_size >= size && (block == NULL || curr->block_size < block->block_size)) {
+            block = curr;
+        }
+        curr = curr->next;
+    }
+    return block;
+}
+
+block_header_t *find_free_block(block_header_t **last, size_t size, placement_t placement) {
+    block_header_t *block = NULL;
+    switch(placement) {
+        case FIRST_FIT:
+            block = find_free_block_first_fit(last, size);
+            break;
+        case BEST_FIT:
+            block = find_free_block_best_fit(last, size);
+            break;
+    }
+    return block;
+}
+
 
 void add_block_to_pool(block_header_t *block) {
     if (mem_pool == NULL) {
@@ -59,9 +87,12 @@ void add_block_to_pool(block_header_t *block) {
     return;
 }
 
-void *ymalloc(size_t size) {
+void *ymalloc(size_t size, placement_t placement) {
     if (size <= 0) {
         return NULL;
+    }
+    if (placement == NULL) {
+        placement = FIRST_FIT;
     }
     block_header_t *block = NULL;
 
@@ -75,7 +106,7 @@ void *ymalloc(size_t size) {
         return (void *)(block + 1);
     }
     block_header_t *last = mem_pool;
-    block = find_free_block(&last, size);
+    block = find_free_block(&last, size, placement);
     if (block != NULL) {
         //printf ("found free block: %ld\n", block);
         block->free = 0;

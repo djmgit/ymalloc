@@ -91,9 +91,6 @@ void *ymalloc(size_t size, placement_t placement) {
     if (size <= 0) {
         return NULL;
     }
-    if (placement == NULL) {
-        placement = FIRST_FIT;
-    }
     block_header_t *block = NULL;
 
     // first allocation
